@@ -156,6 +156,10 @@ function v4_to_css_color(v) {
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
+function to_px(val) {
+  return `${val}px`;
+}
+
 const ruler = document.createElement('div');
 document.body.appendChild(ruler);
 ruler.style.display = 'inline-table';
@@ -179,20 +183,45 @@ function measure_text_size(font, text) {
 }
 
 const command_buffer = [];
+const regions = [];
 
-function draw_rect(rect, color) {
-  command_buffer.push({ type: 'rect', rect, color });
+function draw_rect(rect, color, style = null) {
+  command_buffer.push({ type: 'rect', rect, color, style });
 }
 
 function draw_text(font, text, rect, color = v4_white, anchor = v2(0, 0), scale = v2(1, 1)) {
   command_buffer.push({ type: 'text', font, text, rect, color, anchor, scale });
 }
 
+function begin_region(rect, style = null) {
+  const id = regions.length;
+
+  const region = { type: 'begin_region', id, rect, style };
+  regions.push(region);
+  command_buffer.push(region);
+
+  return id;
+}
+
+function end_region(id) {
+  command_buffer.push({ type: 'end_region' });
+}
+
+function begin_clipping_region(rect) {
+  return begin_region(rect, { overflow: 'hidden' });
+}
+
+function end_clipping_region(id) {
+  return end_region(id);
+}
+
 function draw_button(rect, text) {
   const id = imgui_unique_id(rect, 1);
 
-  draw_rect(rect, v4(0, 0, 0, 1));
+  const region = begin_clipping_region(rect);
+  draw_rect(rect, v4(0, 0, 0, 1), { radius: 8 });
   draw_text(null, text, rect, v4_white, v2(0.5, 0.5));
+  end_clipping_region(region);
 
   return false;
 }
@@ -223,26 +252,49 @@ function do_one_frame() {
 
   root.innerHTML = '';
 
+  let active_region = null;
   for (let i = 0; i < command_buffer.length; i++) {
     const cmd = command_buffer[i];
 
-    const el = document.createElement('div');
     switch (cmd.type) {
       case 'rect': {
+        const pos = cmd.rect.p0;
         const size = cmd.rect.size();
 
+        if (active_region) {
+          pos.x -= active_region.cmd.x0;
+          pos.y -= active_region.cmd.y0;
+        }
+
+        const el = document.createElement('div');
         el.style.background = v4_to_css_color(cmd.color);
         el.style.position = 'absolute';
-        el.style.left = cmd.rect.x0 + 'px';
-        el.style.top = cmd.rect.y0 + 'px';
+        el.style.left = pos.x + 'px';
+        el.style.top = pos.y + 'px';
         el.style.width = size.x + 'px';
         el.style.height = size.y + 'px';
+
+        if (cmd.style.radius) {
+          el.style.borderRadius = cmd.style.radius + 'px';
+        }
+
+        if (active_region) {
+          active_region.el.appendChild(el);
+        } else {
+          root.appendChild(el);
+        }
       } break;
 
       case 'text': {
         const pos = cmd.rect.p0;
         const size = cmd.rect.size();
 
+        if (active_region) {
+          pos.x -= active_region.cmd.x0;
+          pos.y -= active_region.cmd.y0;
+        }
+
+        const el = document.createElement('div');
         el.style.color = v4_to_css_color(cmd.color);
         el.style.position = 'absolute';
         el.style.left = pos.x + 'px';
@@ -262,13 +314,53 @@ function do_one_frame() {
           el.style.alignItems = 'center';
         }
 
+        if (active_region) {
+          active_region.el.appendChild(el);
+        } else {
+          root.appendChild(el);
+        }
+      } break;
+
+      case 'begin_region': {
+        const el = document.createElement('div');
+
+        const pos = cmd.rect.p0;
+        const size = cmd.rect.size();
+
+        el.style.position = 'absolute';
+        el.style.left = pos.x + 'px';
+        el.style.top = pos.y + 'px';
+        el.style.width = size.x + 'px';
+        el.style.height = size.y + 'px';
+
+        if (cmd.style.overflow) {
+          el.style.overflow = cmd.style.overflow;
+        }
+
+        if (active_region) {
+          active_region.el.appendChild(el);
+        } else {
+          root.appendChild(el);
+        }
+
+        active_region = { el, cmd, parent: active_region };
+
+      } break;
+
+      case 'end_region': {
+        assert(active_region);
+
+        if (active_region.parent) {
+          active_region = active_region.parent;
+        } else {
+          active_region = null;
+        }
       } break;
     }
-
-    root.appendChild(el);
   }
 
   command_buffer.length = 0;
+  regions.length = 0;
 }
 
 function render() {
