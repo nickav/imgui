@@ -228,6 +228,10 @@ function imgui_unique_id(rect, id) {
   return imgui_hash(rect.x0) + imgui_hash(rect.y0) + imgui_hash(rect.x1) + imgui_hash(rect.y1) + id;
 }
 
+function is_focused(id) { return imgui.focus_id == id; }
+
+function is_hovered(id) { return imgui.hover_id == id; }
+
 function imgui_end_frame() {
   imgui.hover_id = imgui.next_hover_id;
   imgui.next_hover_id = 0;
@@ -249,6 +253,15 @@ function mouse_released() {
 
 function rectangle_contains(rect, point) {
   return point.x >= rect.x0 && point.x <= rect.x1 && point.y >= rect.y0 && point.y <= rect.y1;
+}
+
+function imgui_hover(id, rect) {
+  const mouse = input.mouse.position;
+  if (rectangle_contains(rect, mouse)) {
+    imgui.next_hover_id = id;
+  }
+
+  return imgui.hover_id === id;
 }
 
 function imgui_click(id, rect) {
@@ -474,14 +487,19 @@ function do_one_frame() {
 function draw_button(rect, text) {
   const id = imgui_unique_id(rect, 1);
 
-  const is_clicked = imgui_click(id, rect);
+  const is_click = imgui_click(id, rect);
+  const is_hover = is_hovered(id);
+
+  let color = v4(0, 0, 0, 1);
+  if (is_hover) color.x = 0.3;
+  if (is_click) color = v4(0, 1, 0, 1);
 
   const region = begin_clipping_region(rect);
-  draw_rect(rect, is_clicked ? v4(1, 1, 0, 1) : v4(0, 0, 0, 1), { radius: 8 });
+  draw_rect(rect, color, { radius: 8 });
   draw_text(null, text, rect, v4_white, v2(0.5, 0.5));
   end_clipping_region(region);
 
-  return is_clicked;
+  return is_click;
 }
 
 function draw() {
