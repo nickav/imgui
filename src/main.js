@@ -1,3 +1,7 @@
+//
+// Functions
+//
+
 function assert(...args) {
   console.assert(...args);
 }
@@ -29,6 +33,10 @@ function ceil(a) {
 function clamp(value, a, b) {
   return min(max(value, a), b);
 }
+
+//
+// Math
+//
 
 class Vector2 {
   x = 0;
@@ -129,36 +137,17 @@ function center_in_bounds(rect, size) {
 const v4_white = v4(1, 1, 1, 1);
 const v4_black = v4(0, 0, 0, 1);
 
+//
+// Strings
+//
+
 function S(...args) {
   return args[0];
 }
 
-const imgui_elements = {};
-
-function imgui_hash(value) {
-  value ^= (value >> 20) ^ (value >> 12);
-  return value ^ (value >> 7) ^ (value >> 4);
-}
-
-function imgui_unique_vec2_id(pos, id) {
-  return imgui_hash(pos.x) + imgui_hash(pos.y) + id;
-}
-
-function imgui_unique_id(rect, id) {
-  return imgui_hash(rect.x0) + imgui_hash(rect.y0) + imgui_hash(rect.x1) + imgui_hash(rect.y1) + id;
-}
-
-function v4_to_css_color(v) {
-  const r = clamp(v.x, 0, 1) * 255;
-  const g = clamp(v.y, 0, 1) * 255;
-  const b = clamp(v.z, 0, 1) * 255;
-  const a = clamp(v.w, 0, 1);
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
-function to_px(val) {
-  return `${val}px`;
-}
+//
+// Fonts
+//
 
 const ruler = document.createElement('div');
 document.body.appendChild(ruler);
@@ -181,6 +170,104 @@ function measure_text_size(font, text) {
   ruler.innerText = text;
   return v2(ruler.offsetWidth, ruler.offsetHeight);
 }
+
+//
+// Imgui
+//
+
+const input = {
+  mouse: {
+    position: v2(0, 0),
+    state: {
+      is_down: false,
+      just_released: false,
+      just_pressed: false,
+    }
+  }
+};
+
+function bind_input_listeners() {
+  window.addEventListener('mousemove', (event) => {
+    input.mouse.position.x = event.pageX;
+    input.mouse.position.y = event.pageY;
+  });
+
+  window.addEventListener('mousedown', (event) => {
+    input.mouse.state.just_pressed = true;
+    input.mouse.state.is_down = true;
+  });
+
+  window.addEventListener('mouseup', (event) => {
+    input.mouse.state.just_released = true;
+    input.mouse.state.is_down = false;
+  });
+}
+
+function input_end_frame() {
+  input.mouse.state.just_pressed = false;
+  input.mouse.state.just_released = false;
+}
+
+const imgui = {
+  focus_id: 0,
+  hover_id: 0,
+  next_hover_id: 0,
+  drag_id: 0,
+};
+
+function imgui_hash(value) {
+  value ^= (value >> 20) ^ (value >> 12);
+  return value ^ (value >> 7) ^ (value >> 4);
+}
+
+function imgui_unique_vec2_id(pos, id) {
+  return imgui_hash(pos.x) + imgui_hash(pos.y) + id;
+}
+
+function imgui_unique_id(rect, id) {
+  return imgui_hash(rect.x0) + imgui_hash(rect.y0) + imgui_hash(rect.x1) + imgui_hash(rect.y1) + id;
+}
+
+function imgui_end_frame() {
+  imgui.hover_id = imgui.next_hover_id;
+  imgui.next_hover_id = 0;
+
+  input_end_frame();
+}
+
+function mouse_pressed() {
+  return input.mouse.state.just_pressed;
+}
+
+function mouse_down() {
+  return input.mouse.state.is_down;
+}
+
+function mouse_released() {
+  return input.mouse.state.just_released;
+}
+
+function rectangle_contains(rect, point) {
+  return point.x >= rect.x0 && point.x <= rect.x1 && point.y >= rect.y0 && point.y <= rect.y1;
+}
+
+function imgui_click(id, rect) {
+  if (imgui.hover_id == id && mouse_pressed()) {
+    imgui.focus_id = id;
+    return true;
+  }
+
+  const mouse = input.mouse.position;
+  if (rectangle_contains(rect, mouse)) {
+    imgui.next_hover_id = id;
+  }
+
+  return false;
+}
+
+//
+// Draw
+//
 
 const command_buffer = [];
 const regions = [];
@@ -215,41 +302,19 @@ function end_clipping_region(id) {
   return end_region(id);
 }
 
-function draw_button(rect, text) {
-  const id = imgui_unique_id(rect, 1);
-
-  const region = begin_clipping_region(rect);
-  draw_rect(rect, v4(0, 0, 0, 1), { radius: 8 });
-  draw_text(null, text, rect, v4_white, v2(0.5, 0.5));
-  end_clipping_region(region);
-
-  return false;
+function v4_to_css_color(v) {
+  const r = clamp(v.x, 0, 1) * 255;
+  const g = clamp(v.y, 0, 1) * 255;
+  const b = clamp(v.z, 0, 1) * 255;
+  const a = clamp(v.w, 0, 1);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
-let window_width = window.innerWidth;
-let window_height = window.innerHeight;
-const window_size = v2(window_width, window_height);
-
-let root = null;
-
-function init(el) {
-  root = el;
-  tick();
+function to_px(val) {
+  return `${val}px`;
 }
 
-function tick() {
-  do_one_frame();
-  window.requestAnimationFrame(tick);
-}
-
-function do_one_frame() {
-  window_width = window.innerWidth;
-  window_height = window.innerHeight;
-  window_size.x = window_width;
-  window_size.y = window_height;
-
-  render();
-
+function render_to_dom(root) {
   root.innerHTML = '';
 
   let active_region = null;
@@ -361,18 +426,72 @@ function do_one_frame() {
 
   command_buffer.length = 0;
   regions.length = 0;
+
+  if (imgui.hover_id) {
+    document.body.style.cursor = 'pointer';
+  } else {
+    document.body.style.cursor = 'default';
+  }
 }
 
-function render() {
+//
+// Main
+//
+
+let window_width = window.innerWidth;
+let window_height = window.innerHeight;
+const window_size = v2(window_width, window_height);
+
+let root = null;
+
+function init(el) {
+  root = el;
+  bind_input_listeners();
+  tick();
+}
+
+function tick() {
+  do_one_frame();
+  window.requestAnimationFrame(tick);
+}
+
+function do_one_frame() {
+  window_width = window.innerWidth;
+  window_height = window.innerHeight;
+  window_size.x = window_width;
+  window_size.y = window_height;
+
+  draw();
+  render_to_dom(root);
+
+  imgui_end_frame();
+}
+
+//
+// User Code
+//
+
+function draw_button(rect, text) {
+  const id = imgui_unique_id(rect, 1);
+
+  const is_clicked = imgui_click(id, rect);
+
+  const region = begin_clipping_region(rect);
+  draw_rect(rect, is_clicked ? v4(1, 1, 0, 1) : v4(0, 0, 0, 1), { radius: 8 });
+  draw_text(null, text, rect, v4_white, v2(0.5, 0.5));
+  end_clipping_region(region);
+
+  return is_clicked;
+}
+
+function draw() {
   const screen_bounds = r2(v2(0, 0), window_size);
 
   const button_rect = center_in_bounds(screen_bounds, v2(256, 48));
 
-  if (draw_button(button_rect, S("Hello, world!"))) {
+  if (draw_button(button_rect, S("Hello, world! " + input.mouse.position.x))) {
     print("CLICKED!");
   }
 }
 
-//init(document.getElementById('app'));
-root = document.getElementById('app');
-do_one_frame();
+init(document.getElementById('app'));
