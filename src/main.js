@@ -327,99 +327,104 @@ function to_px(val) {
   return `${val}px`;
 }
 
-function render_to_dom(root) {
-  root.innerHTML = '';
+const element_buffer = [];
 
+function get_element_from_buffer(id, cmd, root) {
+  // @Incomplete: more robust scanning for matching elements
+  const it = element_buffer[id];
+
+  if (it) {
+    if (it.cmd.type === cmd.type && it.el.parentElement === root) {
+      return it.el;
+    }
+  }
+
+  const el = document.createElement('div');
+  root.appendChild(el);
+  element_buffer[id] = { el, cmd };
+
+  return el;
+}
+
+function apply_changed_styles(el, styles) {
+  Object.keys(styles).forEach(key => {
+    if (el.style[key] !== styles[key]) {
+      el.style[key] = styles[key];
+    }
+  });
+}
+
+function apply_element_styles(el, rect, styles, active_region) {
+  const pos = rect.p0;
+  const size = rect.size();
+
+  if (active_region) {
+    pos.x -= active_region.cmd.x0;
+    pos.y -= active_region.cmd.y0;
+  }
+
+  const css_styles = {
+    position: 'absolute',
+    left: pos.x,
+    top: pos.y,
+    width: size.x,
+    height: size.y,
+    ...styles,
+  };
+
+  Object.keys(css_styles).forEach(key => {
+    const prop = css_styles[key];
+
+    if (typeof prop === 'number') {
+      css_styles[key] += 'px';
+    } else if (prop instanceof Vector2) {
+      css_styles[key] = `${prop.x}px ${prop.y}px`;
+    } else if (prop instanceof Vector4) {
+      css_styles[key] = v4_to_css_color(prop);
+    }
+  });
+
+  apply_changed_styles(el, css_styles);
+}
+
+function render_to_dom(root) {
   let active_region = null;
   for (let i = 0; i < command_buffer.length; i++) {
     const cmd = command_buffer[i];
 
     switch (cmd.type) {
       case 'rect': {
-        const pos = cmd.rect.p0;
-        const size = cmd.rect.size();
 
-        if (active_region) {
-          pos.x -= active_region.cmd.x0;
-          pos.y -= active_region.cmd.y0;
-        }
-
-        const el = document.createElement('div');
-        el.style.background = v4_to_css_color(cmd.color);
-        el.style.position = 'absolute';
-        el.style.left = pos.x + 'px';
-        el.style.top = pos.y + 'px';
-        el.style.width = size.x + 'px';
-        el.style.height = size.y + 'px';
-
-        if (cmd.style.radius) {
-          el.style.borderRadius = cmd.style.radius + 'px';
-        }
-
-        if (active_region) {
-          active_region.el.appendChild(el);
-        } else {
-          root.appendChild(el);
-        }
+        const el = get_element_from_buffer(i, cmd, active_region ? active_region.el : root);
+        apply_element_styles(el, cmd.rect, { ...cmd.style, background: v4_to_css_color(cmd.color) }, active_region);
       } break;
 
       case 'text': {
-        const pos = cmd.rect.p0;
-        const size = cmd.rect.size();
-
-        if (active_region) {
-          pos.x -= active_region.cmd.x0;
-          pos.y -= active_region.cmd.y0;
-        }
-
-        const el = document.createElement('div');
-        el.style.color = v4_to_css_color(cmd.color);
-        el.style.position = 'absolute';
-        el.style.left = pos.x + 'px';
-        el.style.top = pos.y + 'px';
-        el.style.width = size.x + 'px';
-        el.style.height = size.y + 'px';
-        el.innerText = cmd.text;
+        const el = get_element_from_buffer(i, cmd, active_region ? active_region.el : root);
+        const styles = { ...cmd.style, color: v4_to_css_color(cmd.color) };
 
         if (cmd.anchor.x === 0.5) {
-          el.style.display = 'flex';
-          el.style.textAlign = 'center';
-          el.style.justifyContent = 'center';
+          styles.display = 'flex';
+          styles.textAlign = 'center';
+          styles.justifyContent = 'center';
         }
 
         if (cmd.anchor.y === 0.5) {
-          el.style.display = 'flex';
-          el.style.alignItems = 'center';
+          styles.display = 'flex';
+          styles.alignItems = 'center';
         }
 
-        if (active_region) {
-          active_region.el.appendChild(el);
-        } else {
-          root.appendChild(el);
+        apply_element_styles(el, cmd.rect, styles, active_region);
+
+        if (el.innerText !== cmd.text) {
+          el.innerText = cmd.text;
         }
+
       } break;
 
       case 'begin_region': {
-        const el = document.createElement('div');
-
-        const pos = cmd.rect.p0;
-        const size = cmd.rect.size();
-
-        el.style.position = 'absolute';
-        el.style.left = pos.x + 'px';
-        el.style.top = pos.y + 'px';
-        el.style.width = size.x + 'px';
-        el.style.height = size.y + 'px';
-
-        if (cmd.style.overflow) {
-          el.style.overflow = cmd.style.overflow;
-        }
-
-        if (active_region) {
-          active_region.el.appendChild(el);
-        } else {
-          root.appendChild(el);
-        }
+        const el = get_element_from_buffer(i, cmd, active_region ? active_region.el : root);
+        apply_element_styles(el, cmd.rect, cmd.style, active_region);
 
         active_region = { el, cmd, parent: active_region };
 
@@ -440,10 +445,13 @@ function render_to_dom(root) {
   command_buffer.length = 0;
   regions.length = 0;
 
+  let cursor = 'default';
   if (imgui.hover_id) {
-    document.body.style.cursor = 'pointer';
-  } else {
-    document.body.style.cursor = 'default';
+    cursor = 'pointer';
+  }
+
+  if (document.body.style.cursor !== cursor) {
+    document.body.style.cursor = cursor;
   }
 }
 
@@ -454,21 +462,28 @@ function render_to_dom(root) {
 let window_width = window.innerWidth;
 let window_height = window.innerHeight;
 const window_size = v2(window_width, window_height);
+let should_quit = false;
 
 let root = null;
 
 function init(el) {
   root = el;
+}
+
+function run() {
+  should_quit = false;
   bind_input_listeners();
   tick();
 }
 
 function tick() {
   do_one_frame();
-  window.requestAnimationFrame(tick);
+  if (!should_quit) window.requestAnimationFrame(tick);
 }
 
 function do_one_frame() {
+  assert(root);
+
   window_width = window.innerWidth;
   window_height = window.innerHeight;
   window_size.x = window_width;
@@ -495,7 +510,7 @@ function draw_button(rect, text) {
   if (is_click) color = v4(0, 1, 0, 1);
 
   const region = begin_clipping_region(rect);
-  draw_rect(rect, color, { radius: 8 });
+  draw_rect(rect, color, { borderRadius: 8 });
   draw_text(null, text, rect, v4_white, v2(0.5, 0.5));
   end_clipping_region(region);
 
@@ -508,8 +523,12 @@ function draw() {
   const button_rect = center_in_bounds(screen_bounds, v2(256, 48));
 
   if (draw_button(button_rect, S("Hello, world! " + input.mouse.position.x))) {
+    document.body.style.background = v4_to_css_color(v4(Math.random(), Math.random(), Math.random(), 1));
     print("CLICKED!");
   }
 }
 
-init(document.getElementById('app'));
+const app = document.getElementById('app');
+init(app);
+do_one_frame();
+run();
