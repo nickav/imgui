@@ -136,6 +136,9 @@ function center_in_bounds(rect, size) {
 
 const v4_white = v4(1, 1, 1, 1);
 const v4_black = v4(0, 0, 0, 1);
+const v4_red = v4(1, 0, 0, 1);
+const v4_green = v4(0, 1, 0, 1);
+const v4_blue = v4(0, 0, 1, 1);
 
 //
 // Strings
@@ -156,17 +159,49 @@ ruler.style.visibility = 'hidden';
 ruler.style.position = 'absolute';
 ruler.style.left = '-99999px';
 
+function normalize_styles(css_styles) {
+  Object.keys(css_styles).forEach(key => {
+    const prop = css_styles[key];
+
+    if (typeof prop === 'number') {
+      css_styles[key] += 'px';
+    } else if (prop instanceof Vector2) {
+      css_styles[key] = `${prop.x}px ${prop.y}px`;
+    } else if (prop instanceof Vector4) {
+      css_styles[key] = v4_to_css_color(prop);
+    }
+  });
+
+  return css_styles;
+}
+
+function style_ruler(ruler, font) {
+  Object.assign(ruler.style, normalize_styles({
+    fontFamily: '',
+    fontSize: '',
+    fontStyle: '',
+    fontVariant: '',
+    fontWeight: '',
+    letterSpacing: '',
+    lineHeight: '',
+    ...font,
+  }));
+}
+
 function measure_text_width(font, text) {
+  style_ruler(ruler, font);
   ruler.innerText = text;
   return ruler.offsetWidth;
 }
 
 function measure_text_height(font, text) {
+  style_ruler(ruler, font);
   ruler.innerText = text;
   return ruler.offsetHeight;
 }
 
 function measure_text_size(font, text) {
+  style_ruler(ruler, font);
   ruler.innerText = text;
   return v2(ruler.offsetWidth, ruler.offsetHeight);
 }
@@ -289,8 +324,8 @@ function draw_rect(rect, color, style = null) {
   command_buffer.push({ type: 'rect', rect, color, style });
 }
 
-function draw_text(font, text, rect, color = v4_white, anchor = v2(0, 0), scale = v2(1, 1)) {
-  command_buffer.push({ type: 'text', font, text, rect, color, anchor, scale });
+function draw_text(font, text, rect, color = v4_white, anchor = v2(0, 0)) {
+  command_buffer.push({ type: 'text', style: font, text, rect, color, anchor });
 }
 
 function begin_region(rect, style = null) {
@@ -327,11 +362,11 @@ function to_px(val) {
   return `${val}px`;
 }
 
-const element_buffer = [];
+const element_cache = [];
 
-function get_element_from_buffer(id, cmd, root) {
+function get_element_from_cache(id, cmd, root) {
   // @Incomplete: more robust scanning for matching elements
-  const it = element_buffer[id];
+  const it = element_cache[id];
 
   if (it) {
     if (it.cmd.type === cmd.type && it.el.parentElement === root) {
@@ -341,7 +376,7 @@ function get_element_from_buffer(id, cmd, root) {
 
   const el = document.createElement('div');
   root.appendChild(el);
-  element_buffer[id] = { el, cmd };
+  element_cache[id] = { el, cmd };
 
   return el;
 }
@@ -372,19 +407,7 @@ function apply_element_styles(el, rect, styles, active_region) {
     ...styles,
   };
 
-  Object.keys(css_styles).forEach(key => {
-    const prop = css_styles[key];
-
-    if (typeof prop === 'number') {
-      css_styles[key] += 'px';
-    } else if (prop instanceof Vector2) {
-      css_styles[key] = `${prop.x}px ${prop.y}px`;
-    } else if (prop instanceof Vector4) {
-      css_styles[key] = v4_to_css_color(prop);
-    }
-  });
-
-  apply_changed_styles(el, css_styles);
+  apply_changed_styles(el, normalize_styles(css_styles));
 }
 
 function render_to_dom(root) {
@@ -394,13 +417,12 @@ function render_to_dom(root) {
 
     switch (cmd.type) {
       case 'rect': {
-
-        const el = get_element_from_buffer(i, cmd, active_region ? active_region.el : root);
+        const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
         apply_element_styles(el, cmd.rect, { ...cmd.style, background: v4_to_css_color(cmd.color) }, active_region);
       } break;
 
       case 'text': {
-        const el = get_element_from_buffer(i, cmd, active_region ? active_region.el : root);
+        const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
         const styles = { ...cmd.style, color: v4_to_css_color(cmd.color) };
 
         if (cmd.anchor.x === 0.5) {
@@ -423,11 +445,10 @@ function render_to_dom(root) {
       } break;
 
       case 'begin_region': {
-        const el = get_element_from_buffer(i, cmd, active_region ? active_region.el : root);
+        const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
         apply_element_styles(el, cmd.rect, cmd.style, active_region);
 
         active_region = { el, cmd, parent: active_region };
-
       } break;
 
       case 'end_region': {
@@ -522,10 +543,16 @@ function draw() {
 
   const button_rect = center_in_bounds(screen_bounds, v2(256, 48));
 
-  if (draw_button(button_rect, S("Hello, world! " + input.mouse.position.x))) {
+  if (draw_button(button_rect, S("Hello, world!"))) {
     document.body.style.background = v4_to_css_color(v4(Math.random(), Math.random(), Math.random(), 1));
     print("CLICKED!");
   }
+
+  const text_rect = r2(0, 0, window_width, 32);
+
+  const mouse = input.mouse.position;
+  draw_rect(text_rect, v4(1, 1, 1, 0.4));
+  draw_text(null, S(`input.mouse.position = v2(${mouse.x}, ${mouse.y})`), text_rect, v4_black, v2(0.5, 0.5));
 }
 
 const app = document.getElementById('app');
