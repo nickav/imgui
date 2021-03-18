@@ -250,6 +250,7 @@ const imgui = {
   drag_id: 0,
 };
 
+// @Robustness: make these better hash functions
 function imgui_hash(value) {
   value ^= (value >> 20) ^ (value >> 12);
   return value ^ (value >> 7) ^ (value >> 4);
@@ -319,6 +320,13 @@ function imgui_click(id, rect) {
 
 const command_buffer = [];
 const regions = [];
+
+function draw_clear(color) {
+  command_buffer.length = 0;
+  regions.length = 0;
+
+  document.body.style.backgroundColor = v4_to_css_color(color);
+}
 
 function draw_rect(rect, color, style = null) {
   command_buffer.push({ type: 'rect', rect, color, style });
@@ -520,6 +528,8 @@ function do_one_frame() {
 // User Code
 //
 
+let backgroundColor = v4(1, 1, 1, 1);
+
 function draw_button(rect, text) {
   const id = imgui_unique_id(rect, 1);
 
@@ -539,20 +549,21 @@ function draw_button(rect, text) {
 }
 
 function draw() {
-  const screen_bounds = r2(v2(0, 0), window_size);
-
-  const button_rect = center_in_bounds(screen_bounds, v2(256, 48));
-
-  if (draw_button(button_rect, S("Hello, world!"))) {
-    document.body.style.background = v4_to_css_color(v4(Math.random(), Math.random(), Math.random(), 1));
-    print("CLICKED!");
-  }
+  draw_clear(backgroundColor);
 
   const text_rect = r2(0, 0, window_width, 32);
 
   const mouse = input.mouse.position;
   draw_rect(text_rect, v4(1, 1, 1, 0.4));
   draw_text(null, S(`input.mouse.position = v2(${mouse.x}, ${mouse.y})`), text_rect, v4_black, v2(0.5, 0.5));
+
+  const screen_bounds = r2(v2(0, 0), window_size);
+  const button_rect = center_in_bounds(screen_bounds, v2(256, 48));
+
+  if (draw_button(button_rect, S("Hello, sailor!"))) {
+    backgroundColor = v4(Math.random(), Math.random(), Math.random(), 1);
+    print("CLICKED!");
+  }
 }
 
 const app = document.getElementById('app');
