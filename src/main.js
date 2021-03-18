@@ -46,7 +46,7 @@ class Vector2 {
     this.x = x;
     this.y = y;
   }
-};
+}
 
 function v2(...args) {
   return new Vector2(...args);
@@ -68,7 +68,7 @@ class Vector4 {
     this.z = z;
     this.w = w;
   }
-};
+}
 
 function v4(...args) {
   return new Vector4(...args);
@@ -81,7 +81,7 @@ class Rectangle2 {
   y1 = 0;
 
   constructor(x0, y0, x1, y1) {
-    if (typeof x1 !== "undefined") {
+    if (typeof x1 !== 'undefined') {
       this.x0 = x0;
       this.y0 = y0;
       this.x1 = x1;
@@ -114,10 +114,14 @@ class Rectangle2 {
     return v2(this.x0 + s.x / 2, this.y0 + s.y / 2);
   }
 
-  width() { return abs(this.x1 - this.x0); }
+  width() {
+    return abs(this.x1 - this.x0);
+  }
 
-  height() { return abs(this.y1 - this.y0); }
-};
+  height() {
+    return abs(this.y1 - this.y0);
+  }
+}
 
 function r2(...args) {
   return new Rectangle2(...args);
@@ -126,19 +130,8 @@ function r2(...args) {
 function center_in_bounds(rect, size) {
   const center = rect.center();
 
-  return r2(
-    center.x - size.x * 0.5,
-    center.y - size.y * 0.5,
-    center.x + size.x * 0.5,
-    center.y + size.y * 0.5,
-  );
+  return r2(center.x - size.x * 0.5, center.y - size.y * 0.5, center.x + size.x * 0.5, center.y + size.y * 0.5);
 }
-
-const v4_white = v4(1, 1, 1, 1);
-const v4_black = v4(0, 0, 0, 1);
-const v4_red = v4(1, 0, 0, 1);
-const v4_green = v4(0, 1, 0, 1);
-const v4_blue = v4(0, 0, 1, 1);
 
 //
 // Strings
@@ -147,6 +140,26 @@ const v4_blue = v4(0, 0, 1, 1);
 function S(...args) {
   return args[0];
 }
+
+//
+// Constants
+//
+
+const v4_white = v4(1, 1, 1, 1);
+const v4_black = v4(0, 0, 0, 1);
+const v4_red = v4(1, 0, 0, 1);
+const v4_green = v4(0, 1, 0, 1);
+const v4_blue = v4(0, 0, 1, 1);
+
+const v2_one = v2(1, 1);
+const v2_zero = v2(0, 0);
+const v2_center = v2(0.5, 0.5);
+
+const KEY_SPACE = 32;
+const KEY_RIGHT = 39;
+const KEY_LEFT = 37;
+const KEY_N = 78;
+const KEY_P = 80;
 
 //
 // Fonts
@@ -160,7 +173,7 @@ ruler.style.position = 'absolute';
 ruler.style.left = '-99999px';
 
 function normalize_styles(css_styles) {
-  Object.keys(css_styles).forEach(key => {
+  Object.keys(css_styles).forEach((key) => {
     const prop = css_styles[key];
 
     if (typeof prop === 'number') {
@@ -176,16 +189,19 @@ function normalize_styles(css_styles) {
 }
 
 function style_ruler(ruler, font) {
-  Object.assign(ruler.style, normalize_styles({
-    fontFamily: '',
-    fontSize: '',
-    fontStyle: '',
-    fontVariant: '',
-    fontWeight: '',
-    letterSpacing: '',
-    lineHeight: '',
-    ...font,
-  }));
+  Object.assign(
+    ruler.style,
+    normalize_styles({
+      fontFamily: '',
+      fontSize: '',
+      fontStyle: '',
+      fontVariant: '',
+      fontWeight: '',
+      letterSpacing: '',
+      lineHeight: '',
+      ...font,
+    })
+  );
 }
 
 function measure_text_width(font, text) {
@@ -217,8 +233,12 @@ const input = {
       is_down: false,
       just_released: false,
       just_pressed: false,
-    }
-  }
+    },
+  },
+  keyboard: {
+    keys: [],
+    last_key_code: 0,
+  },
 };
 
 function bind_input_listeners() {
@@ -236,11 +256,42 @@ function bind_input_listeners() {
     input.mouse.state.just_released = true;
     input.mouse.state.is_down = false;
   });
+
+  document.addEventListener('keydown', (event) => {
+    const key_code = event.keyCode;
+
+    input.keyboard.keys[key_code] = {
+      just_pressed: !event.repeat,
+      is_down: true,
+      just_released: false,
+    };
+
+    input.keyboard.last_key_code = key_code;
+  });
+
+  document.addEventListener('keyup', (event) => {
+    const key_code = event.keyCode;
+
+    input.keyboard.keys[key_code] = {
+      just_pressed: false,
+      is_down: false,
+      just_released: true,
+    };
+  });
 }
 
 function input_end_frame() {
   input.mouse.state.just_pressed = false;
   input.mouse.state.just_released = false;
+
+  for (let i = 0; i < input.keyboard.keys.length; i += 1) {
+    const key = input.keyboard.keys[i];
+
+    if (key) {
+      key.just_pressed = false;
+      key.just_released = false;
+    }
+  }
 }
 
 const imgui = {
@@ -264,9 +315,13 @@ function imgui_unique_id(rect, id) {
   return imgui_hash(rect.x0) + imgui_hash(rect.y0) + imgui_hash(rect.x1) + imgui_hash(rect.y1) + id;
 }
 
-function is_focused(id) { return imgui.focus_id == id; }
+function is_focused(id) {
+  return imgui.focus_id == id;
+}
 
-function is_hovered(id) { return imgui.hover_id == id; }
+function is_hovered(id) {
+  return imgui.hover_id == id;
+}
 
 function imgui_end_frame() {
   imgui.hover_id = imgui.next_hover_id;
@@ -285,6 +340,18 @@ function mouse_down() {
 
 function mouse_released() {
   return input.mouse.state.just_released;
+}
+
+function keyboard_pressed(key_code) {
+  return input.keyboard.keys[key_code]?.just_pressed;
+}
+
+function keyboard_down(key_code) {
+  return input.keyboard.keys[key_code]?.is_down;
+}
+
+function keyboard_released(key_code) {
+  return input.keyboard.keys[key_code]?.just_released;
 }
 
 function rectangle_contains(rect, point) {
@@ -390,7 +457,7 @@ function get_element_from_cache(id, cmd, root) {
 }
 
 function apply_changed_styles(el, styles) {
-  Object.keys(styles).forEach(key => {
+  Object.keys(styles).forEach((key) => {
     if (el.style[key] !== styles[key]) {
       el.style[key] = styles[key];
     }
@@ -424,50 +491,57 @@ function render_to_dom(root) {
     const cmd = command_buffer[i];
 
     switch (cmd.type) {
-      case 'rect': {
-        const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
-        apply_element_styles(el, cmd.rect, { ...cmd.style, background: v4_to_css_color(cmd.color) }, active_region);
-      } break;
-
-      case 'text': {
-        const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
-        const styles = { ...cmd.style, color: v4_to_css_color(cmd.color) };
-
-        if (cmd.anchor.x === 0.5) {
-          styles.display = 'flex';
-          styles.textAlign = 'center';
-          styles.justifyContent = 'center';
+      case 'rect':
+        {
+          const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
+          apply_element_styles(el, cmd.rect, { ...cmd.style, background: v4_to_css_color(cmd.color) }, active_region);
         }
+        break;
 
-        if (cmd.anchor.y === 0.5) {
-          styles.display = 'flex';
-          styles.alignItems = 'center';
+      case 'text':
+        {
+          const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
+          const styles = { ...cmd.style, color: v4_to_css_color(cmd.color) };
+
+          if (cmd.anchor.x === 0.5) {
+            styles.display = 'flex';
+            styles.textAlign = 'center';
+            styles.justifyContent = 'center';
+          }
+
+          if (cmd.anchor.y === 0.5) {
+            styles.display = 'flex';
+            styles.alignItems = 'center';
+          }
+
+          apply_element_styles(el, cmd.rect, styles, active_region);
+
+          if (el.innerText !== cmd.text) {
+            el.innerText = cmd.text;
+          }
         }
+        break;
 
-        apply_element_styles(el, cmd.rect, styles, active_region);
+      case 'begin_region':
+        {
+          const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
+          apply_element_styles(el, cmd.rect, cmd.style, active_region);
 
-        if (el.innerText !== cmd.text) {
-          el.innerText = cmd.text;
+          active_region = { el, cmd, parent: active_region };
         }
+        break;
 
-      } break;
+      case 'end_region':
+        {
+          assert(active_region);
 
-      case 'begin_region': {
-        const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
-        apply_element_styles(el, cmd.rect, cmd.style, active_region);
-
-        active_region = { el, cmd, parent: active_region };
-      } break;
-
-      case 'end_region': {
-        assert(active_region);
-
-        if (active_region.parent) {
-          active_region = active_region.parent;
-        } else {
-          active_region = null;
+          if (active_region.parent) {
+            active_region = active_region.parent;
+          } else {
+            active_region = null;
+          }
         }
-      } break;
+        break;
     }
   }
 
@@ -528,7 +602,15 @@ function do_one_frame() {
 // User Code
 //
 
-let backgroundColor = v4(1, 1, 1, 1);
+const main_font = {
+  fontFamily: 'monospace',
+  fontSize: 24,
+};
+
+const state = {
+  backgroundColor: v4(1, 1, 1, 1),
+  slideIndex: 0,
+};
 
 function draw_button(rect, text) {
   const id = imgui_unique_id(rect, 1);
@@ -548,8 +630,35 @@ function draw_button(rect, text) {
   return is_click;
 }
 
-function draw() {
-  draw_clear(backgroundColor);
+const totalSlides = 3;
+
+function draw_slide(index) {
+  draw_clear(v4_black);
+
+  const screen_bounds = r2(v2(0, 0), window_size);
+
+  switch (index) {
+    case 0:
+      {
+        draw_text(main_font, S(input.keyboard.last_key_code), center_in_bounds(screen_bounds, v2(500, 80)), v4_white, v2_center);
+      }
+      return;
+
+    case 1:
+      {
+        draw_clear(v4_red);
+        draw_text(main_font, S('are fun!'), center_in_bounds(screen_bounds, v2(500, 80)), v4_white, v2_center);
+      }
+      return;
+
+    case 2: {
+      draw_demo();
+    }
+  }
+}
+
+function draw_demo() {
+  draw_clear(state.backgroundColor);
 
   const text_rect = r2(0, 0, window_width, 32);
 
@@ -560,10 +669,24 @@ function draw() {
   const screen_bounds = r2(v2(0, 0), window_size);
   const button_rect = center_in_bounds(screen_bounds, v2(256, 48));
 
-  if (draw_button(button_rect, S("Hello, sailor!"))) {
-    backgroundColor = v4(Math.random(), Math.random(), Math.random(), 1);
-    print("CLICKED!");
+  if (draw_button(button_rect, S('Hello, sailor!'))) {
+    state.backgroundColor = v4(Math.random(), Math.random(), Math.random(), 1);
+    print('CLICKED!');
   }
+}
+
+function draw() {
+  if (keyboard_pressed(KEY_SPACE) || keyboard_pressed(KEY_RIGHT) || keyboard_pressed(KEY_N)) {
+    state.slideIndex += 1;
+    state.slideIndex %= totalSlides;
+  }
+
+  if (keyboard_pressed(KEY_LEFT) || keyboard_pressed(KEY_P)) {
+    state.slideIndex -= 1;
+    if (state.slideIndex < 0) state.slideIndex += totalSlides;
+  }
+
+  draw_slide(state.slideIndex);
 }
 
 const app = document.getElementById('app');
