@@ -18,20 +18,40 @@ function max(a, b) {
   return Math.max(a, b);
 }
 
-function floor(a) {
-  return Math.floor(a);
+function floor(x) {
+  return Math.floor(x);
 }
 
-function round(a) {
-  return Math.round(a);
+function round(x) {
+  return Math.round(x);
 }
 
-function ceil(a) {
-  return Math.ceil(a);
+function ceil(x) {
+  return Math.ceil(x);
+}
+
+function sin(x) {
+  return Math.sin(x);
+}
+
+function cos(x) {
+  return Math.sin(x);
 }
 
 function clamp(value, a, b) {
   return min(max(value, a), b);
+}
+
+function lerp(a, b, t) {
+  return (1.0 - t) * a + t * b;
+}
+
+function lerp_v2(a, b, t) {
+  return v2(lerp(a.x, b.x, t), lerp(a.y, b.y, t));
+}
+
+function lerp_v4(a, b, t) {
+  return v4(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t), lerp(a.w, b.w, t));
 }
 
 //
@@ -129,7 +149,6 @@ function r2(...args) {
 
 function center_in_bounds(rect, size) {
   const center = rect.center();
-
   return r2(center.x - size.x * 0.5, center.y - size.y * 0.5, center.x + size.x * 0.5, center.y + size.y * 0.5);
 }
 
@@ -154,6 +173,7 @@ const v4_blue = v4(0, 0, 1, 1);
 const v2_one = v2(1, 1);
 const v2_zero = v2(0, 0);
 const v2_center = v2(0.5, 0.5);
+const v2_center_left = v2(0, 0.5);
 
 const KEY_SPACE = 32;
 const KEY_RIGHT = 39;
@@ -487,7 +507,7 @@ function apply_element_styles(el, rect, styles, active_region) {
 }
 
 function render_to_dom(root) {
-  element_cache.forEach(it => it.el.style.display = 'none');
+  element_cache.forEach((it) => (it.el.style.display = 'none'));
 
   let active_region = null;
   for (let i = 0; i < command_buffer.length; i++) {
@@ -506,15 +526,29 @@ function render_to_dom(root) {
           const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
           const styles = { ...cmd.style, color: v4_to_css_color(cmd.color) };
 
+          styles.textAlign = 'left';
+          styles.justifyContent = 'flex-start';
+          styles.whiteSpace = 'pre';
+
           if (cmd.anchor.x === 0.5) {
             styles.display = 'flex';
-            styles.textAlign = 'center';
+            //styles.textAlign = 'center';
             styles.justifyContent = 'center';
+          }
+
+          if (cmd.anchor.x === 1) {
+            styles.display = 'flex';
+            styles.justifyContent = 'flex-end';
           }
 
           if (cmd.anchor.y === 0.5) {
             styles.display = 'flex';
             styles.alignItems = 'center';
+          }
+
+          if (cmd.anchor.y === 1) {
+            styles.display = 'flex';
+            styles.alignItems = 'flex-end';
           }
 
           apply_element_styles(el, cmd.rect, styles, active_region);
@@ -569,6 +603,7 @@ let window_width = window.innerWidth;
 let window_height = window.innerHeight;
 const window_size = v2(window_width, window_height);
 let should_quit = false;
+let time = 0;
 
 let root = null;
 
@@ -582,7 +617,8 @@ function run() {
   tick();
 }
 
-function tick() {
+function tick(now) {
+  time = now / 1000;
   do_one_frame();
   if (!should_quit) window.requestAnimationFrame(tick);
 }
@@ -633,12 +669,14 @@ function draw_button(rect, text) {
   return is_click;
 }
 
-const totalSlides = 3;
+const totalSlides = 6;
 
 function draw_slide(index) {
   draw_clear(v4_black);
 
   const screen_bounds = r2(v2(0, 0), window_size);
+
+  let i = 0;
 
   switch (index) {
     case 0:
@@ -649,12 +687,52 @@ function draw_slide(index) {
 
     case 1:
       {
-        draw_clear(v4_red);
-        draw_text(main_font, S('are fun!'), screen_bounds, v4_white, v2_center);
+        draw_text(main_font, S(`Retained-Mode UIs`), screen_bounds, v4(0.3, 0.3, 0.3, 1), v2_center);
       }
       return;
 
-    case 2: {
+    case 2:
+      {
+        const color = lerp_v4(v4_blue, v4_green, 0.5 + sin(time) * 0.5);
+        draw_text(main_font, S(`Immediate-Mode UIs`), screen_bounds, color, v2_center);
+      }
+      return;
+
+    case 3:
+      {
+        draw_text(
+          main_font,
+          S(`
+document.appendChild(el);
+
+// ...
+
+document.removeChild(el);
+`).trim(),
+          screen_bounds,
+          v4_red,
+          v2_center
+        );
+      }
+      return;
+
+    case 4:
+      {
+        draw_text(
+          { ...main_font, textAlign: 'left' },
+          S(`
+if (draw_button(...)) {
+  print("Button was clicked!");
+}
+`).trim(),
+          screen_bounds,
+          v4_green,
+          v2_center
+        );
+      }
+      return;
+
+    case 5: {
       draw_demo();
     }
   }
