@@ -208,7 +208,7 @@ function normalize_styles(css_styles) {
   return css_styles;
 }
 
-function style_ruler(ruler, font) {
+function set_ruler_style(ruler, font) {
   Object.assign(
     ruler.style,
     normalize_styles({
@@ -225,19 +225,19 @@ function style_ruler(ruler, font) {
 }
 
 function measure_text_width(font, text) {
-  style_ruler(ruler, font);
+  set_ruler_style(ruler, font);
   ruler.innerText = text;
   return ruler.offsetWidth;
 }
 
 function measure_text_height(font, text) {
-  style_ruler(ruler, font);
+  set_ruler_style(ruler, font);
   ruler.innerText = text;
   return ruler.offsetHeight;
 }
 
 function measure_text_size(font, text) {
-  style_ruler(ruler, font);
+  set_ruler_style(ruler, font);
   ruler.innerText = text;
   return v2(ruler.offsetWidth, ruler.offsetHeight);
 }
@@ -423,6 +423,10 @@ function draw_text(font, text, rect, color = v4_white, anchor = v2(0, 0)) {
   command_buffer.push({ type: 'text', style: font, text, rect, color, anchor });
 }
 
+function draw_image(src, rect, style = null) {
+  draw_rect(rect, v4_black, { ...style, background: `url(${src})`, backgroundSize: 'cover' });
+}
+
 function begin_region(rect, style = null) {
   const id = regions.length;
 
@@ -466,12 +470,14 @@ function get_element_from_cache(id, cmd, root) {
   if (it) {
     if (it.cmd.type === cmd.type && it.el.parentElement === root) {
       it.el.style.display = 'block';
+      it.el.style.zIndex = id;
       return it.el;
     }
   }
 
   const el = document.createElement('div');
   root.appendChild(el);
+  el.style.zIndex = id;
   element_cache[id] = { el, cmd };
 
   return el;
@@ -517,14 +523,24 @@ function render_to_dom(root) {
       case 'rect':
         {
           const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
-          apply_element_styles(el, cmd.rect, { ...cmd.style, background: v4_to_css_color(cmd.color) }, active_region);
+          apply_element_styles(el, cmd.rect, { ...cmd.style, background: cmd.style?.background || v4_to_css_color(cmd.color) }, active_region);
         }
         break;
 
       case 'text':
         {
           const el = get_element_from_cache(i, cmd, active_region ? active_region.el : root);
-          const styles = { ...cmd.style, color: v4_to_css_color(cmd.color) };
+          const styles = {
+            fontFamily: '',
+            fontSize: '',
+            fontStyle: '',
+            fontVariant: '',
+            fontWeight: '',
+            letterSpacing: '',
+            lineHeight: '',
+            ...cmd.style,
+            color: v4_to_css_color(cmd.color),
+          };
 
           styles.textAlign = 'left';
           styles.justifyContent = 'flex-start';
@@ -622,7 +638,7 @@ function run() {
 function tick(now) {
   prev_time = time;
   time = now / 1000;
-  dt = (time - prev_time);
+  dt = time - prev_time;
 
   do_one_frame();
   if (!should_quit) window.requestAnimationFrame(tick);
@@ -688,6 +704,7 @@ function draw_slide(index) {
   switch (index) {
     case 0:
       {
+        draw_image('test.jpg', screen_bounds);
         draw_text(main_font, S('IMGUIs'), screen_bounds, v4_white, v2_center);
       }
       break;
@@ -726,7 +743,7 @@ document.removeChild(el);
     case 4:
       {
         draw_text(
-          { ...main_font, textAlign: 'left' },
+          main_font,
           S(`
 if (draw_button(...)) {
   print("Button was clicked!");
@@ -739,29 +756,38 @@ if (draw_button(...)) {
       }
       break;
 
-    case 5: {
-      draw_demo();
-    } break;
-
-    case 6: {
-      const font = { fontFamily: 'monospace', fontSize: 12 };
-
-      const scroll = state.scroll;
-      state.scroll += dt * state.scroll_speed;
-      state.scroll_speed += 10;
-
-      let virtual_height = window_height;
-      let item_height = 20;
-      let item_count = ceil(virtual_height / item_height);
-      let item_offset = scroll / item_height;
-
-      for (let i = 0; i < item_count; i += 1) {
-        const index = i + floor(item_offset);
-        const y0 = scroll % item_height;
-        draw_text(font, S(`I'm virtualized! ${index}`), r2(v2(0, floor(20 * i - y0)), v2(window_width, floor(20 * (i + 1) - y0))), v4_white, v2_center);
+    case 5:
+      {
+        draw_text(main_font, S(`React`), screen_bounds, v4_red, v2_center);
       }
+      break;
 
-    } break;
+    case 6:
+      {
+        draw_demo();
+      }
+      break;
+
+    case 7:
+      {
+        const font = { fontFamily: 'monospace', fontSize: 12 };
+
+        const scroll = state.scroll;
+        state.scroll += dt * state.scroll_speed;
+        state.scroll_speed += 10;
+
+        const virtual_height = window_height;
+        const item_height = 20;
+        const item_count = ceil(virtual_height / item_height);
+        const item_offset = scroll / item_height;
+
+        for (let i = 0; i < item_count; i += 1) {
+          const index = i + floor(item_offset);
+          const y0 = scroll % item_height;
+          draw_text(font, S(`I'm virtualized! ${index}`), r2(v2(0, floor(20 * i - y0)), v2(window_width, floor(20 * (i + 1) - y0))), v4_white, v2_center);
+        }
+      }
+      break;
   }
 }
 
