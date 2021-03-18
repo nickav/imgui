@@ -603,7 +603,9 @@ let window_width = window.innerWidth;
 let window_height = window.innerHeight;
 const window_size = v2(window_width, window_height);
 let should_quit = false;
+let prev_time = 0;
 let time = 0;
+let dt = 0;
 
 let root = null;
 
@@ -618,7 +620,10 @@ function run() {
 }
 
 function tick(now) {
+  prev_time = time;
   time = now / 1000;
+  dt = (time - prev_time);
+
   do_one_frame();
   if (!should_quit) window.requestAnimationFrame(tick);
 }
@@ -649,6 +654,8 @@ const main_font = {
 const state = {
   backgroundColor: v4(1, 1, 1, 1),
   slideIndex: 0,
+  scroll: 0,
+  scroll_speed: 10,
 };
 
 function draw_button(rect, text) {
@@ -669,7 +676,7 @@ function draw_button(rect, text) {
   return is_click;
 }
 
-const totalSlides = 6;
+const totalSlides = 7;
 
 function draw_slide(index) {
   draw_clear(v4_black);
@@ -683,20 +690,20 @@ function draw_slide(index) {
       {
         draw_text(main_font, S('IMGUIs'), screen_bounds, v4_white, v2_center);
       }
-      return;
+      break;
 
     case 1:
       {
         draw_text(main_font, S(`Retained-Mode UIs`), screen_bounds, v4(0.3, 0.3, 0.3, 1), v2_center);
       }
-      return;
+      break;
 
     case 2:
       {
         const color = lerp_v4(v4_blue, v4_green, 0.5 + sin(time) * 0.5);
         draw_text(main_font, S(`Immediate-Mode UIs`), screen_bounds, color, v2_center);
       }
-      return;
+      break;
 
     case 3:
       {
@@ -714,7 +721,7 @@ document.removeChild(el);
           v2_center
         );
       }
-      return;
+      break;
 
     case 4:
       {
@@ -730,11 +737,31 @@ if (draw_button(...)) {
           v2_center
         );
       }
-      return;
+      break;
 
     case 5: {
       draw_demo();
-    }
+    } break;
+
+    case 6: {
+      const font = { fontFamily: 'monospace', fontSize: 12 };
+
+      const scroll = state.scroll;
+      state.scroll += dt * state.scroll_speed;
+      state.scroll_speed += 10;
+
+      let virtual_height = window_height;
+      let item_height = 20;
+      let item_count = ceil(virtual_height / item_height);
+      let item_offset = scroll / item_height;
+
+      for (let i = 0; i < item_count; i += 1) {
+        const index = i + floor(item_offset);
+        const y0 = scroll % item_height;
+        draw_text(font, S(`I'm virtualized! ${index}`), r2(v2(0, floor(20 * i - y0)), v2(window_width, floor(20 * (i + 1) - y0))), v4_white, v2_center);
+      }
+
+    } break;
   }
 }
 
@@ -766,6 +793,8 @@ function draw() {
     state.slideIndex -= 1;
     if (state.slideIndex < 0) state.slideIndex += totalSlides;
   }
+
+  document.body.style.overflow = 'hidden';
 
   draw_slide(state.slideIndex);
 }
