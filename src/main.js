@@ -445,6 +445,7 @@ function get_element_from_cache(id, cmd, root) {
 
   if (it) {
     if (it.cmd.type === cmd.type && it.el.parentElement === root) {
+      it.el.style.display = 'block';
       return it.el;
     }
   }
@@ -486,6 +487,8 @@ function apply_element_styles(el, rect, styles, active_region) {
 }
 
 function render_to_dom(root) {
+  element_cache.forEach(it => it.el.style.display = 'none');
+
   let active_region = null;
   for (let i = 0; i < command_buffer.length; i++) {
     const cmd = command_buffer[i];
@@ -604,7 +607,7 @@ function do_one_frame() {
 
 const main_font = {
   fontFamily: 'monospace',
-  fontSize: 24,
+  fontSize: 48,
 };
 
 const state = {
@@ -640,14 +643,14 @@ function draw_slide(index) {
   switch (index) {
     case 0:
       {
-        draw_text(main_font, S(input.keyboard.last_key_code), center_in_bounds(screen_bounds, v2(500, 80)), v4_white, v2_center);
+        draw_text(main_font, S('IMGUIs'), screen_bounds, v4_white, v2_center);
       }
       return;
 
     case 1:
       {
         draw_clear(v4_red);
-        draw_text(main_font, S('are fun!'), center_in_bounds(screen_bounds, v2(500, 80)), v4_white, v2_center);
+        draw_text(main_font, S('are fun!'), screen_bounds, v4_white, v2_center);
       }
       return;
 
