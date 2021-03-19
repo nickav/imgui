@@ -176,6 +176,7 @@ const v2_center = v2(0.5, 0.5);
 const v2_center_left = v2(0, 0.5);
 
 const KEY_SPACE = 32;
+const KEY_ENTER = 13;
 const KEY_RIGHT = 39;
 const KEY_LEFT = 37;
 const KEY_N = 78;
@@ -846,7 +847,7 @@ function draw_demo() {
 }
 
 function draw() {
-  if (keyboard_pressed(KEY_SPACE) || keyboard_pressed(KEY_RIGHT) || keyboard_pressed(KEY_N)) {
+  if (keyboard_pressed(KEY_SPACE) || keyboard_pressed(KEY_ENTER) || keyboard_pressed(KEY_RIGHT) || keyboard_pressed(KEY_N)) {
     state.slideIndex += 1;
     state.slideIndex %= totalSlides;
   }
