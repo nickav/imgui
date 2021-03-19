@@ -692,7 +692,14 @@ function draw_button(rect, text) {
   return is_click;
 }
 
-const totalSlides = 7;
+function open_link(href, props) {
+  const el = document.createElement('a');
+  Object.assign(el, props);
+  el.href = href;
+  el.click();
+}
+
+const totalSlides = 12;
 
 function draw_slide(index) {
   draw_clear(v4_black);
@@ -725,13 +732,15 @@ function draw_slide(index) {
     case 3:
       {
         draw_text(
-          main_font,
+          { fontSize: 32 },
           S(`
-document.appendChild(el);
+const button = document.createElement('button');
+button.addEventListener('click', () => print("click!"));
+document.body.appendChild(button);
 
 // ...
 
-document.removeChild(el);
+button.parentNode.removeChild(button);
 `).trim(),
           screen_bounds,
           v4_red,
@@ -743,7 +752,7 @@ document.removeChild(el);
     case 4:
       {
         draw_text(
-          main_font,
+          { fontSize: 32 },
           S(`
 if (draw_button(...)) {
   print("Button was clicked!");
@@ -758,17 +767,35 @@ if (draw_button(...)) {
 
     case 5:
       {
-        draw_text(main_font, S(`React`), screen_bounds, v4_red, v2_center);
+        draw_text(main_font, S(`React`), screen_bounds, v4_blue, v2_center);
       }
       break;
 
     case 6:
       {
-        draw_demo();
+        draw_text(main_font, S(`Problems`), screen_bounds, v4_white, v2_center);
       }
       break;
 
     case 7:
+      {
+        draw_text(main_font, S(`"Web-Hard" Problems`), screen_bounds, v4_white, v2_center);
+      }
+      break;
+
+    case 8:
+      {
+        draw_text(main_font, S(`Demo`), screen_bounds, v4_white, v2_center);
+      }
+      break;
+
+    case 9:
+      {
+        draw_demo();
+      }
+      break;
+
+    case 10:
       {
         const font = { fontFamily: 'monospace', fontSize: 12 };
 
@@ -788,6 +815,15 @@ if (draw_button(...)) {
         }
       }
       break;
+
+    case 11: {
+      draw_text({ ...main_font, textDecoration: 'underline' }, S(`https://github.com/nickav/imgui`), screen_bounds, v4_blue, v2_center);
+
+      const id = imgui_unique_id(screen_bounds, 99);
+      if (imgui_click(id, screen_bounds)) {
+        open_link('https://github.com/nickav/imgui', { target: '_blank' });
+      }
+    }
   }
 }
 
@@ -824,6 +860,10 @@ function draw() {
 
   draw_slide(state.slideIndex);
 }
+
+//
+// Main
+//
 
 const app = document.getElementById('app');
 init(app);
